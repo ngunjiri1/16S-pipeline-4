@@ -1,0 +1,418 @@
+#Hi Michael
+
+1.  FastQC Quality check 
+
+
+
+fastqc *.fastq --outdir FastQC  
+
+#run all .fastq files through FastQC Application and save the results in a folder named FastQC. Note the folder must be created in the current directory before running the command
+
+---
+
+NOTE: a lot of Nextera adaptor sequences were discovered
+
+---
+
+
+
+[2.] Adapter trimming using BBDuk in the BBTools package
+
+
+
+# create "Adapter_Trimmed"
+
+files_1=(*_R1_001.fastq);files_2=(*_R2_001.fastq);sorted_files_1=($(printf "%s\n" "${files_1[@]}" | sort -u));sorted_files_2=($(printf "%s\n" "${files_2[@]}" | sort -u));for ((i=0; i<${#sorted_files_1[@]}; i+=1)); do bbduk.sh -Xmx20g in1=${sorted_files_1[i]} in2=${sorted_files_2[i]} out1=Adapter_Trimmed/A_trimmed_${sorted_files_1[i]%%.*}.fastq out2=Adapter_Trimmed/A_trimmed_${sorted_files_2[i]%%.*}.fastq ref=$ADAPTSEQ/nextera.fa.gz ktrim=r k=23 mink=11 hdist=1 tpe tbo &>Adapter_Trimmed/A_trimmed_${sorted_files_2[i]%%.*}.log;done
+
+files_1=(*_R1_001.fastq.gz);files_2=(*_R2_001.fastq.gz);sorted_files_1=($(printf "%s\n" "${files_1[@]}" | sort -u));sorted_files_2=($(printf "%s\n" "${files_2[@]}" | sort -u));for ((i=0; i<${#sorted_files_1[@]}; i+=1)); do bbduk.sh -Xmx20g in1=${sorted_files_1[i]} in2=${sorted_files_2[i]} out1=Adapter_Trimmed/A_trimmed_${sorted_files_1[i]%%.*}.fastq out2=Adapter_Trimmed/A_trimmed_${sorted_files_2[i]%%.*}.fastq ref=$ADAPTSEQ/nextera.fa.gz ktrim=r k=23 mink=11 hdist=1 tpe tbo &>Adapter_Trimmed/A_trimmed_${sorted_files_2[i]%%.*}.log;done
+
+
+
+
+
+# $files_1=(*_R1_001.fastq); pick all R1 files and assign to an array file_1
+
+#$files_2=(*_R2_001.fastq); pick all R2 files and assign to an array file_2
+
+#sorted_files_1=($(printf "%s\n" "${files_1[@]}" | sort -u));sorted_files_2=($(printf "%s\n" "${files_2[@]}" | sort -u));  sort arrays to pair R1 and R2 from the same sample
+
+#for ((i=0; i<${#sorted_files_1[@]}; i+=1)); 
+
+#do bbduk.sh -Xmx20g in1=${sorted_files_1[i]} in2=${sorted_files_2[i]} out1=Adapter_Trimmed/A_trimmed_${sorted_files_1[i]%%.*}.fastq out2=Adapter_Trimmed/A_trimmed_${sorted_files_2[i]%%.*}.fastq ref=$ADAPTSEQ/nextera.fa.gz ktrim=r k=23 mink=11 hdist=1 tpe tbo;done ->  BDuk parameters
+
+#&>Adapter_Trimmed/A_trimmed_${sorted_files_2[i]%%.*}.log  -> log file
+
+
+
+3. Fast QC Quality check 
+
+fastqc *.fastq --outdir FastQC
+
+# to confirm the adapters have been removed. One can also use the grep ">" or grep -c ">" commands on linux system to check whether a specific string of adaptor sequence is still present
+
+
+
+[4.] Merge paired reads with BBMerge
+
+files_1=(*_R1_001.fastq);files_2=(*_R2_001.fastq);sorted_files_1=($(printf "%s\n" "${files_1[@]}" | sort -u));sorted_files_2=($(printf "%s\n" "${files_2[@]}" | sort -u));for ((i=0; i<${#sorted_files_1[@]}; i+=1)); do bbmerge-auto.sh in1=${sorted_files_1[i]} in2=${sorted_files_2[i]} out=Merged2/Merged_${sorted_files_1[i]%%.*}.fastq  outu1=UnMerged2/UnMerged_${sorted_files_1[i]%%.*}.fastq outu2=UnMerged2/UnMerged_${sorted_files_2[i]%%.*}.fastq ihist=Logs_Merged2/A_trimmed_${sorted_files_2[i]%%.*}.hist ecct extend2=20 iterations=5 &>Logs_Merged2/A_trimmed_${sorted_files_2[i]%%.*}.log;done
+
+
+
+[5.] Renaming merged Fastq files 
+
+# Remove "TOS" names and name with more informative names like "SW300", "C002", "etc" <= these informative are extracted from the original long illumina names 
+
+for i in *.fastq;do echo ${i//.*} | cut -d"_" -f4 | sed s'/TOS//' | xargs  -I file mv  $i file.fastq;done
+
+# to count the files in the cd
+
+ls -lR | grep ^- | wc -l
+
+
+
+[5a.] The merged file from the tk and ck data is placed on the same folder
+
+
+
+[5b.]
+
+#added a prefix to the commercial turkey files to make them unique
+
+#for chickens C is added
+
+for filename in *.fastq; do mv "$filename" "C$filename"; done;
+
+#for turkeys T is added
+
+for filename in *.fastq; do mv "$filename" "T$filename"; done;
+
+
+
+
+
+[6.  QIIME: Convert fastq to fasta and join sequences:
+
+multiple_split_libraries_fastq.py -i turkey_chicken -o Joined_Mergerd_ck_tk   --sampleid_indicator=.fastq
+
+#this will generate seqs.fna file for downstream application. 
+
+
+
+7. MOTHUR: Filter reads less than 260 and greater than 320
+
+Load Mothur, i.e., type Mothur and Enter for mothur to load 
+
+copy and paste ==> screen.seqs(fasta=seqs.fna, minlength=260, maxlength=320)
+
+#make sure the seqs.fna file
+
+#a "seqs.good.fna" file is generated for downstream use.  I renamed it to seqs.fna to match most of Qiime scripts
+
+
+
+8. Confirm sequences in the "seqs.good.fna" have the right length
+
+
+
+#Make Length distribution file. Will contain sequence names and lengths
+
+#Must be in the same directory 
+
+pyfasta info -n -1 ./seqs.good.fna > Length_Distro.txt
+
+pyfasta info -n -1 ./seqs.fna > Length_Distribution_Orig_fna.txt
+
+
+
+#Extract the sequence length, count and bin the sequence lengths
+
+cat Length_Distro.txt | cut -d" " -f7 | cut -d":" -f2| sort -n| uniq -c 
+
+
+
+#make compare histogram with that of the original fna file 
+
+
+
+[10.] de vovo OTU picking 
+
+ pick_de_novo_otus.py -i $PWD/seqs.good.fna -o $PWD/uclust_otus/
+
+ 
+
+ # if error occurs, you may need to reformat seqs.fna
+
+ reformat.sh in= seqs.good.fna out=reformated_seqs.fna
+
+ 
+
+[11.] Filter OTUs that are not bacteria
+
+filter_taxa_from_otu_table.py -i otu_table.biom -o otu_table_taxa_filtered.biom -p k__Bacteria
+
+
+
+12. Remove blanks 
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered.biom -o otu_table_taxa_filtered_no_blank.biom -m mapping_corrected.txt  -s 'Description:*,!Blank*'
+
+
+
+13. Filter OTU table to remove OTUs with less than XX count:
+
+filter_otus_from_otu_table.py -i otu_table_taxa_filtered.biom -o otu_table_taxa_filtered_no_less_than_25.biom -n 25
+
+----
+
+NOTE: It is not necessary to generate tissue-specific biom tables and mapping files if analysis are done following the "Bioconductor workflow for microbiome" in R
+
+
+
+
+
+
+
+14.
+
+
+
+[14a] Validate mapping file 
+
+validate_mapping_file.py -m     merged_ck_tk_mapping.txt -o Validated_ck_tk_mapping
+
+validate_mapping_file.py -m     merged_ck_tk_mapping_TT_TW comparison.txt -o Validated_ck_tk_mapping_TT_TW_comparison
+
+
+
+
+
+
+
+[14.b] #Filter biom table to generate tissue using tissue-specific mapping file
+
+
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered_no_less_than_25.biom -o ck_CE.biom -m merged_ck_tk_mapping_corrected.txt -s 'Tissue:CE'
+
+
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered_no_less_than_25.biom -o tk_ck_IL.biom -m merged_ck_tk_mapping_corrected.txt -s 'Tissue:IL'
+
+
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered_no_less_than_25.biom -o tk_ck_TW.biom -m merged_ck_tk_mapping_corrected.txt -s 'Tissue:TW'
+
+
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered_no_less_than_25.biom -o tk_ck_SW.biom -m merged_ck_tk_mapping_corrected.txt -s 'Tissue:SW'
+
+
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered_no_less_than_25.biom -o ck_TT.biom -m merged_ck_tk_mapping_corrected.txt -s 'Tissue:TT'
+
+
+
+filter_samples_from_otu_table.py -i otu_table_taxa_filtered_no_less_than_25.biom -o ck_TT_TW_comparison.biom -m merged_ck_tk_mapping_TT_TW_comparison_corrected.txt -s 'Comparison:YES'
+
+
+
+
+
+
+
+14.c #Did the filter work?
+
+biom convert -i ck_CE.biom -o ck_CE_from_biom.txt --to-tsv
+
+----
+
+
+
+[15]. Summarize taxa through plots: 
+
+summarize_taxa_through_plots.py -i .biom -o all_Group -c AgeSpecies -m merged_ck_tk_mapping_corrected.txt
+
+
+
+summarize_taxa_through_plots.py -i tk_ck_CE.biom -o CE_Group/ -f -s -c AgeSpecies -m merged_ck_tk_mapping_corrected.txt 
+
+
+
+summarize_taxa_through_plots.py -i tk_ck_IL.biom -o IL_Group/ -f -s -c AgeSpecies -m merged_ck_tk_mapping_corrected.txt  
+
+
+
+summarize_taxa_through_plots.py -i tk_ck_TW.biom -o TW_Group/ -f -s -c AgeSpecies -m merged_ck_tk_mapping_corrected.txt 
+
+
+
+summarize_taxa_through_plots.py -i tk_ck_SW.biom -o SW_Group/ -f -s -c AgeSpecies -m merged_ck_tk_mapping_corrected.txt 
+
+
+
+summarize_taxa_through_plots.py -i ck_TT.biom -o TT_Group/ -f -s -c AgeSpecies -m merged_ck_tk_mapping_corrected.txt
+
+
+
+summarize_taxa_through_plots.py -i ck_TT_TW_comparison.biom -o TT_TW_Comparison_Group/ -f -s -c AgeSpecies -m merged_ck_tk_mapping_TT_TW_comparison_corrected.txt
+
+
+
+#species level
+
+
+
+summarize_taxa.py -i tk_ck_CE.biom -L 7 -o ./tax
+
+
+
+summarize_taxa.py -i tk_ck_CE.biom -L 7 -a -o ./tax2_counts
+
+
+
+17. Compute core microbiome
+
+
+
+compute_core_microbiome.py -i otu_table.biom -o otu_table_core
+
+compute_core_microbiome.py -i tk_ck_CE.biom -o otu_table_core_01CK_CE --min_fraction_for_core 0. --valid_states "AgeSpecies:01W_CK"
+
+compute_core_microbiome.py -i tk_ck_CE.biom -o otu_table_core_01WTK_CE --valid_states "AgeSpecies:01W_TK"
+
+compute_core_microbiome.py -i tk_ck_IL.biom -o otu_table_core_01WTK_IL --valid_states "AgeSpecies:01W_TK"
+
+compute_core_microbiome.py -i tk_ck_IL.biom -o otu_table_core_03WTK_IL --valid_states "AgeSpecies:03W_TK"
+
+compute_core_microbiome.py -i tk_ck_TW.biom -o otu_table_core_01WTK_IL --valid_states "AgeSpecies:01W_TK"
+
+
+
+
+
+
+
+
+
+
+
+16. Determine number of reads per sample for rarefaction:
+
+
+
+biom summarize-table -i otu_table_taxa_filtered_no_less_than_25.biom -o biom_ck_tk_all_summary_orig.txt
+
+
+
+
+
+17. Rareify to appropriate number:
+
+#Example -> single_rarefaction.py -i reo.biom -o reo_rare5000.biom -d 5000
+
+
+
+single_rarefaction.py -i otu_table_taxa_filtered_no_less_than_25.biom -o ck_tk_all_rare_1000.biom -d 1000
+
+
+
+
+
+
+18. Beta diversity:
+
+#generate UniFrac for R
+
+beta_diversity.py -i ck_tk_all_rare_1000.biom -o bdv_ck_tk_all_rare1000/ -t rep_set.tre
+
+
+
+
+
+_____________________________________________________________________
+
+
+
+#Commercial vs SPF
+
+beta_diversity.py -i CE_rare15319.biom -o bdv_CE_rare15319/ -t rep_set_CE.tre
+
+beta_diversity.py -i IL_rare1539.biom -o bdv_IL_rare1539/ -t rep_set_IL.tre
+
+
+
+#generate bdv plots with QIIME
+
+beta_diversity_through_plots.py -i reo_all_rare10000 -o bdiv_reo_all10000/ -t rep_set.tre -m mapping.txt -e 5000
+
+
+
+
+
+
+
+19. Alpha diversity
+
+------
+
+A. Alpha rarefaction
+
+alpha_rarefaction.py -i reo.biom -o reo_arare_max5000/ -t rep_set.tre -m mapping_REO2_corrected.txt -e 5000 --parameter_fp alpha_parameters.txt
+
+alpha_rarefaction.py -i reo.biom -o reo_arare_shan_5000/ -t rep_set.tre -m mapping_REO2_corrected.txt -e 5000 -p alpha_params.txt
+
+
+
+B. Statistics
+
+compare_alpha_diversity.py -i ./reo_arare_max5000/alpha_div_collated/PD_whole_tree.txt -m mapping_REO2_corrected.txt -c Group -d 5000 -o adiv_test_otus_all_Group
+
+compare_alpha_diversity.py -i ./reo_arare_max5000/alpha_div_collated/PD_whole_tree.txt -m mapping_REO2_corrected.txt -c Group -d 5000 -o adiv_test_tree_all_Group
+
+
+
+------
+
+alpha_rarefaction.py -i CE.biom -o arare_CE_14000/ -t rep_set.tre -m mapping5_corrected.txt -e 14000
+
+
+
+
+
+Compare alpha diversity:
+
+compare_alpha_diversity.py -i ./arare_1000/alpha_div_collated/PD_whole_tree.txt -m mapping2.txt -c Treatment -d 1000 -o adiv_test_Treatment
+
+
+
+-----------
+
+
+
+15. 2D PCA plots:
+
+make_2d_plots.py -i bdiv_even5000/unweighted_unifrac_pc.txt -m mapping.txt -o 2d_plots/
+
+
+
+16. OTUs in tabular format:
+
+biom convert -i otu_table_rare5000.biom -o table.from_biom.txt --to-tsv 
+
+
+
+17. Compare categories:
+
+compare_categories.py --method anosim -i bdiv_even1000_cecum/unweighted_unifrac_dm.txt -m mapping2.txt -c Treatment -o anosim_out_cecum_treatment -n 999
+
+
+
+
+16. TO BE CONTINUEDpyfasta info -n -1 ./seqs.good.fna > Length_Distro.txt
+
+
+
+
+
+
+
