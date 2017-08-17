@@ -319,8 +319,15 @@ biom convert -i otu_table_rare5000.biom -o table.from_biom.txt --to-tsv
 17. Compare categories:
 compare_categories.py --method anosim -i bdiv_even1000_cecum/unweighted_unifrac_dm.txt -m mapping2.txt -c Treatment -o anosim_out_cecum_treatment -n 999
 
+----
+compare_categories.py --method permanova -i unweighted_unifrac_ck_CE_rare9420.txt -m ck_mapping_omitted_TT_corrected.txt -c Age -o permanova_out -n 99
+compare_categories.py --method permanova -i unweighted_unifrac_ck_TW_rare6257.txt -m ck_mapping_omitted_TT_corrected.txt -c Age -o permanova_TW_out -n 99
 
+--------
+Core diversity
 
+core_diversity_analyses.py -i $PWD/ck_all_rare1043.biom -o $PWD/core_output -m $PWD/ck_mapping_omitted_TT_corrected.txt -c Age,Tissue -t $PWD/rep_set.tre -e 1000
+core_diversity_analyses.py -i $PWD/ck_all_rare1043.biom -o $PWD/core_output -m $PWD/ck_mapping_omitted_TT_corrected.txt -c Age,Tissue -t $PWD/rep_set.tre -e 1000
 
 
 16. TO BE CONTINUEDpyfasta info -n -1 ./seqs.good.fna > Length_Distro.txt
